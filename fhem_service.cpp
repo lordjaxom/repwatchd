@@ -24,19 +24,27 @@ service::service( asio::io_context &context, string host, string port )
 
 void service::setreading( string devspec, string reading, string value )
 {
-    asio::spawn( context_, [this, devspec { move( devspec ) }, reading { move( reading ) }, value { move( value ) }]( auto yield ) {
-        checked_invoke( yield, [&]( auto&& socket ) {
-            auto target { "/fhem?fwcsrf=" + request_csrf_token( yield ) + "&cmd=setreading%20" + devspec + "%20" + reading + "%20" + value };
+    checked_spawn( [this, devspec { move( devspec ) }, reading { move( reading ) }, value { move( value ) }]( auto yield ) {
+        auto target { "/fhem?fwcsrf=" + this->request_csrf_token( yield ) + "&cmd=setreading%20" + devspec + "%20" + reading + "%20" + value };
 
-            http::request< http::empty_body > request { http::verb::get, target, 11 };
-            request.set( http::field::host, host_ );
-            request.set( http::field::user_agent, BOOST_BEAST_VERSION_STRING );
-            http::async_write( socket, request, yield );
+        auto socket { this->create_socket( yield ) };
 
-            boost::beast::multi_buffer buffer;
-            http::response< http::dynamic_body > response;
-            http::async_read( socket, buffer, response, yield );
-        } );
+        http::request< http::empty_body > request { http::verb::get, target, 11 };
+        request.set( http::field::host, host_ );
+        request.set( http::field::user_agent, BOOST_BEAST_VERSION_STRING );
+        http::async_write( socket, request, yield );
+
+        boost::beast::multi_buffer buffer;
+        http::response< http::dynamic_body > response;
+        http::async_read( socket, buffer, response, yield );
+    } );
+}
+
+template< typename Func >
+void service::checked_spawn( Func&& func )
+{
+    asio::spawn( context_, [this, func { move( func ) }]( auto yield ) mutable {
+        func( yield );
     } );
 }
 
@@ -52,18 +60,18 @@ tcp::socket service::create_socket( asio::yield_context yield )
 }
 
 string service::request_csrf_token( asio::yield_context yield ) {
-    return checked_invoke( yield, [&]( auto&& socket ) {
-        http::request< http::empty_body > request { http::verb::get, "/fhem?xhr=1", 11 };
-        request.set( http::field::host, host_ );
-        request.set( http::field::user_agent, BOOST_BEAST_VERSION_STRING );
-        http::async_write( socket, request, yield );
+    auto socket { create_socket( yield ) };
 
-        boost::beast::multi_buffer buffer;
-        http::response< http::dynamic_body > response;
-        http::async_read( socket, buffer, response, yield );
+    http::request< http::empty_body > request { http::verb::get, "/fhem?xhr=1", 11 };
+    request.set( http::field::host, host_ );
+    request.set( http::field::user_agent, BOOST_BEAST_VERSION_STRING );
+    http::async_write( socket, request, yield );
 
-        return string( response[ "X-FHEM-csrfToken" ] );
-    } );
+    boost::beast::multi_buffer buffer;
+    http::response< http::dynamic_body > response;
+    http::async_read( socket, buffer, response, yield );
+
+    return string { response[ "X-FHEM-csrfToken" ] };
 }
 
 } // namespace fhem

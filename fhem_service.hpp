@@ -19,13 +19,10 @@ public:
     void setreading( std::string devspec, std::string reading, std::string value );
 
 private:
-    boost::asio::ip::tcp::socket create_socket( boost::asio::yield_context yield );
+    template< typename Func >
+    void checked_spawn( Func&& func );
 
-    template< typename Callback >
-    auto checked_invoke( boost::asio::yield_context yield, Callback&& cb )
-    {
-        return std::forward< Callback >( cb )( create_socket() );
-    }
+    boost::asio::ip::tcp::socket create_socket( boost::asio::yield_context yield);
 
     std::string request_csrf_token( boost::asio::yield_context yield );
 
