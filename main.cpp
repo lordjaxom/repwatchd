@@ -42,9 +42,7 @@ static void update_printers( fhem::service& fhem, vector< rep::printer > const& 
 {
     for ( auto const& printer : printers ) {
         fhem.setreading( "MakerPI_input", printer.slug() + "_state", string( to_string( printer.status() ) ) );
-        if ( printer.status() == rep::printer::printing ) {
-            fhem.setreading( "MakerPI_input", printer.slug() + "_lastJob", printer.job() );
-        }
+        fhem.setreading( "MakerPI_input", printer.slug() + "_job", printer.job() );
     }
 }
 
