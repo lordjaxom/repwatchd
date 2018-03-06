@@ -14,7 +14,12 @@ find_path(json_INCLUDE_DIRS nlohmann/json.hpp HINTS "${JSON_ROOT}/include")
 find_path(lib3dprnet_INCLUDE_DIRS core/config.hpp HINTS "${LIB3DPRNET_ROOT}")
 find_library(lib3dprnet_LIBRARIES 3dprnet HINTS "${LIB3DPRNET_ROOT}/cmake-build-debug")
 
-add_executable(repwatchd main.cpp fhem_service.cpp fhem_service.hpp)
+add_executable(repwatchd
+        main.cpp
+        commandline.cpp
+        commandline.hpp
+        fhem_service.cpp
+        fhem_service.hpp)
 target_compile_definitions(repwatchd PRIVATE ${Boost_DEFINITIONS})
 target_include_directories(repwatchd PRIVATE ${Boost_INCLUDE_DIRS} ${json_INCLUDE_DIRS} ${lib3dprnet_INCLUDE_DIRS})
 target_link_libraries(repwatchd ${Boost_LIBRARIES} ${lib3dprnet_LIBRARIES} stdc++fs)

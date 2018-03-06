@@ -4,8 +4,10 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/version.hpp>
+#include <core/logging.hpp>
 
 using namespace std;
+using namespace prnet;
 
 using tcp = boost::asio::ip::tcp;
 
@@ -14,6 +16,8 @@ namespace http = boost::beast::http;
 
 namespace repw {
 namespace fhem {
+
+static logger logger( "fhem::service" );
 
 service::service( asio::io_context &context, string host, string port )
         : context_( context )
@@ -44,7 +48,13 @@ template< typename Func >
 void service::checked_spawn( Func&& func )
 {
     asio::spawn( context_, [this, func { move( func ) }]( auto yield ) mutable {
-        func( yield );
+        try {
+            func( yield );
+        } catch ( system_error const& e ) {
+            logger.error( "error communicating with fhem: ", e.what() );
+        } catch ( boost::beast::system_error const& e ) {
+            logger.error( "error communicating with fhem: ", e.what() );
+        }
     } );
 }
 
