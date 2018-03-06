@@ -12,7 +12,7 @@ set(Boost_DEFINITIONS BOOST_COROUTINES_NO_DEPRECATION_WARNING)
 find_path(json_INCLUDE_DIRS nlohmann/json.hpp HINTS "${JSON_ROOT}/include")
 
 find_path(lib3dprnet_INCLUDE_DIRS core/config.hpp HINTS "${LIB3DPRNET_ROOT}")
-find_library(lib3dprnet_LIBRARIES 3dprnet HINTS "${LIB3DPRNET_ROOT}/cmake-build-debug")
+find_library(lib3dprnet_LIBRARIES 3dprnet HINTS "${LIB3DPRNET_ROOT}/cmake-build-release" "${LIB3DPRNET_ROOT}/cmake-build-debug")
 
 add_executable(repwatchd
         main.cpp

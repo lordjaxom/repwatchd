@@ -29,6 +29,8 @@ service::service( asio::io_context &context, string host, string port )
 void service::setreading( string devspec, string reading, string value )
 {
     checked_spawn( [this, devspec { move( devspec ) }, reading { move( reading ) }, value { move( value ) }]( auto yield ) {
+		logger.debug( ">>> setreading ", devspec, " ", reading, " ", value );
+
         auto target { "/fhem?fwcsrf=" + this->request_csrf_token( yield ) + "&cmd=setreading%20" + devspec + "%20" + reading + "%20" + value };
 
         auto socket { this->create_socket( yield ) };
