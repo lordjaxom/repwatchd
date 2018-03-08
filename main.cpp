@@ -65,14 +65,12 @@ void run( int argc, char* const argv[] )
         asio::io_context context;
         fhem::service fhem( context, fhemNode.at( "host" ), fhemNode.at( "port" ) );
         rep::settings settings( repetierNode.at( "host" ), repetierNode.at( "port" ), repetierNode.at( "apikey" ) );
-        rep::service service( context, settings, [&]( auto ec ) {
-            service.list_printers( [&]( auto printers ) {
-                update_printers( fhem, printers );
-            } );
-        } );
+        rep::service service( context, settings );
 
-        service.temperature.connect( [&]( auto slug, auto temp ) { update_temperature( fhem, slug, temp ); } );
-        service.printers_changed.connect( [&]( auto printers ) { update_printers( fhem, printers ); } );
+        service.on_disconnect( [&]( auto ec ) { service.request_printers(); } );
+        service.on_temperature( [&]( auto slug, auto temp ) { update_temperature( fhem, slug, temp ); } );
+        service.on_printers( [&]( auto printers ) { update_printers( fhem, printers ); } );
+        service.request_printers();
 
         context.run();
     } catch ( exception const& e ) {
