@@ -41,7 +41,7 @@ static void update_temperature( fhem::service& fhem, string const& slug, rep::te
 static void update_printers( fhem::service& fhem, vector< rep::printer > const& printers )
 {
     for ( auto const& printer : printers ) {
-        fhem.setreading( "MakerPI_input", printer.slug() + "_state", string( to_string( printer.status() ) ) );
+        fhem.setreading( "MakerPI_input", printer.slug() + "_state", string( to_string( printer.state() ) ) );
         fhem.setreading( "MakerPI_input", printer.slug() + "_job", printer.job() );
     }
 }
