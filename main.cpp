@@ -38,11 +38,24 @@ static void update_temperature( fhem::service& fhem, string const& slug, rep::te
     fhem.setreading( "MakerPI_input", slug + "_temperature_" + temp.controller_name(), to_string( temp.actual() ) );
 }
 
-static void update_printers( fhem::service& fhem, vector< rep::printer > const& printers )
+static void update_config( fhem::service& fhem, string const& slug, rep::printer_config const& config )
+{
+	if ( config.heatbed() ) {
+		fhem.setreading( "MakerPI_input", slug + "_temperature_heatbed", "none" );
+	}
+	for ( size_t i = 0 ; i < config.extruders().size() ; ++i ) {
+		fhem.setreading( "MakerPI_input", slug + "_temperature_extruder" + to_string( i ), "none" );
+	}
+}
+
+static void update_printers( fhem::service& fhem, rep::service& rep, vector< rep::printer > const& printers )
 {
     for ( auto const& printer : printers ) {
         fhem.setreading( "MakerPI_input", printer.slug() + "_state", string( to_string( printer.state() ) ) );
         fhem.setreading( "MakerPI_input", printer.slug() + "_job", printer.job() );
+		if ( printer.state() == rep::printer::disabled || printer.state() == rep::printer::offline ) {
+			rep.request_config( printer.slug() );
+		}
     }
 }
 
@@ -69,7 +82,8 @@ void run( int argc, char* const argv[] )
 
         service.on_disconnect( [&]( auto ec ) { service.request_printers(); } );
         service.on_temperature( [&]( auto slug, auto temp ) { update_temperature( fhem, slug, temp ); } );
-        service.on_printers( [&]( auto printers ) { update_printers( fhem, printers ); } );
+		service.on_config( [&]( auto slug, auto config ) { update_config( fhem, slug, config ); } );
+        service.on_printers( [&]( auto printers ) { update_printers( fhem, service, printers ); } );
         service.request_printers();
 
         context.run();
