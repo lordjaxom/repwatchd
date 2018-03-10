@@ -48,7 +48,7 @@ static void update_config( fhem::service& fhem, string const& slug, rep::printer
 	}
 }
 
-static void update_printers( fhem::service& fhem, rep::service& rep, vector< rep::printer > const& printers )
+static void update_printers( fhem::service& fhem, rep::Service& rep, vector< rep::printer > const& printers )
 {
     for ( auto const& printer : printers ) {
         fhem.setreading( "MakerPI_input", printer.slug() + "_state", string( to_string( printer.state() ) ) );
@@ -77,8 +77,8 @@ void run( int argc, char* const argv[] )
 
         asio::io_context context;
         fhem::service fhem( context, fhemNode.at( "host" ), fhemNode.at( "port" ) );
-        rep::settings settings( repetierNode.at( "host" ), repetierNode.at( "port" ), repetierNode.at( "apikey" ) );
-        rep::service service( context, settings );
+        rep::Endpoint endpoint( repetierNode.at( "host" ), repetierNode.at( "port" ), repetierNode.at( "apikey" ) );
+        rep::Service service( context, endpoint );
 
         service.on_disconnect( [&]( auto ec ) { service.request_printers(); } );
         service.on_temperature( [&]( auto slug, auto temp ) { update_temperature( fhem, slug, temp ); } );
