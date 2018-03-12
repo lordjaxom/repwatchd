@@ -72,12 +72,11 @@ void run( int argc, char* const argv[] )
         logger.info( "repwatchd starting" );
 
         auto props = read_properties( args.properties_file() );
-        auto const& repetierNode = props.at( "repetier" );
         auto const& fhemNode = props.at( "fhem" );
 
         asio::io_context context;
         fhem::service fhem( context, fhemNode.at( "host" ), fhemNode.at( "port" ) );
-        rep::Endpoint endpoint( repetierNode.at( "host" ), repetierNode.at( "port" ), repetierNode.at( "apikey" ) );
+        rep::Endpoint endpoint( props.at( "repetier" ) );
         rep::Service service( context, endpoint );
 
         service.on_disconnect( [&]( auto ec ) { service.request_printers(); } );
