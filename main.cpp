@@ -33,12 +33,12 @@ static json read_properties( string const& fileName )
     return move( props );
 }
 
-static void update_temperature( fhem::service& fhem, string const& slug, rep::temperature const& temp )
+static void update_temperature( fhem::service& fhem, string const& slug, rep::Temperature const& temp )
 {
     fhem.setreading( "MakerPI_input", slug + "_temperature_" + temp.controller_name(), to_string( temp.actual() ) );
 }
 
-static void update_config( fhem::service& fhem, string const& slug, rep::printer_config const& config )
+static void update_config( fhem::service& fhem, string const& slug, rep::PrinterConfig const& config )
 {
 	if ( config.heatbed() ) {
 		fhem.setreading( "MakerPI_input", slug + "_temperature_heatbed", "none" );
