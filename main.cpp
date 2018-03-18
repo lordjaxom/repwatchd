@@ -15,6 +15,7 @@
 #include <boost/lexical_cast.hpp>
 #include <mosquittopp.h>
 #include <nlohmann/json.hpp>
+#include <wiringPi.h>
 
 #include "commandline.hpp"
 #include "mqtt/session.hpp"
@@ -112,12 +113,18 @@ void run( int argc, char* const argv[] )
 
         logger.info( "repwatchd starting" );
 
+        wiringPiSetup();
+
         auto props = read_properties( args.properties_file() );
 
         auto powerPins = props.value( "powerPins", json::object() );
         for ( auto powerPin = powerPins.begin() ; powerPin != powerPins.end() ; ++powerPin ) {
             logger.info( "configuring printer ", powerPin.key(), " from properties" );
-            configs.emplace( powerPin.key(), PrinterConfig { powerPin.value() } );
+
+            PrinterConfig config = { powerPin.value() };
+            pinMode( *config.powerPin, OUTPUT );
+            digitalWrite( powerPin.value(), LOW );
+            configs.emplace( powerPin.key(), move( config ) );
         }
 
         asio::io_context context;
