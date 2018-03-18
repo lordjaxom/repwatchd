@@ -59,7 +59,7 @@ void handle_power( string const& slug, string const& value )
 
 void handle_heatbed_temp( string const& slug, string const& value )
 {
-    logger.info( "received Heatbed/TEMP for ", slug, ": ", value );
+    logger.info( "setting heatbed temperature of ", slug, " to ", value );
     repetier->sendCommand( slug, "M140 S" + value );
 }
 
