@@ -36,7 +36,7 @@ add_executable(repwatchd
         commandline.cpp
         commandline.hpp
         mqtt/session.cpp
-        mqtt/session.hpp mqtt/types.cpp mqtt/types.hpp)
+        mqtt/session.hpp mqtt/types.cpp mqtt/types.hpp wiring/Output.cpp wiring/Output.hpp wiring/output.cpp wiring/output.hpp)
 target_compile_definitions(repwatchd PRIVATE ${Boost_DEFINITIONS})
 target_include_directories(repwatchd PRIVATE ${Boost_INCLUDE_DIRS} ${json_INCLUDE_DIRS} ${mosquitto_INCLUDE_DIRS} ${utf8_INCLUDE_DIRS} ${wiringPi_INCLUDE_DIRS} ${lib3dprnet_INCLUDE_DIRS})
 target_link_libraries(repwatchd ${Boost_LIBRARIES} ${mosquitto_LIBRARIES} ${wiringPi_LIBRARIES} ${lib3dprnet_LIBRARIES} stdc++fs)

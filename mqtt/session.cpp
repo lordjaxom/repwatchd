@@ -15,13 +15,13 @@ namespace mqtt {
 
 static prnet::Logger logger( "mqtt::Session" );
 
-class Session::Impl
+class Session::SessionImpl
         : mosqpp::mosquittopp
 {
     using Lock = lock_guard< recursive_mutex >;
 
 public:
-    Impl( Endpoint const& endpoint )
+    SessionImpl( Endpoint const& endpoint )
             : mosquittopp( endpoint.clientId().c_str() )
     {
         call_once( initialized, [] { mosqpp::lib_init(); } );
@@ -32,7 +32,7 @@ public:
         check( "loop", loop_start() );
     }
 
-    ~Impl()
+    ~SessionImpl()
     {
         loop_stop( true );
     }
@@ -93,10 +93,10 @@ private:
     unordered_multimap< string, MessageHandler > subscriptions_;
 };
 
-once_flag Session::Impl::initialized;
+once_flag Session::SessionImpl::initialized;
 
 Session::Session( Endpoint const& endpoint )
-        : impl_( make_unique< Impl >( endpoint ) ) {}
+        : impl_( make_unique< SessionImpl >( endpoint ) ) {}
 
 Session::~Session() = default;
 

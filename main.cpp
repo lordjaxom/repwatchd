@@ -13,12 +13,11 @@
 #include <3dprnet/repetier/types.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/lexical_cast.hpp>
-#include <mosquittopp.h>
 #include <nlohmann/json.hpp>
-#include <wiringPi.h>
 
 #include "commandline.hpp"
 #include "mqtt/session.hpp"
+#include "wiring/output.hpp"
 
 using namespace nlohmann;
 using namespace std;
@@ -32,7 +31,7 @@ static Logger logger( "repwatchd" );
 
 struct PrinterConfig
 {
-    optional< int > powerPin;
+    optional< wiring::Output > powerPin;
     bool initialized;
 };
 
@@ -54,7 +53,18 @@ json read_properties( string const& fileName )
 
 void handle_power( string const& slug, string const& value )
 {
-    logger.info( "received POWER for ", slug );
+    logger.info( "switching power for ", slug, " to ", value );
+
+    bool boolValue;
+    if ( value == "ON" ) {
+        boolValue = true;
+    } else if ( value == "OFF" ) {
+        boolValue = false;
+    } else {
+        logger.warning( "unknown power value ", value );
+        return;
+    }
+    configs.at( slug ).powerPin->set( boolValue );
 }
 
 void handle_heatbed_temp( string const& slug, string const& value )
@@ -113,17 +123,13 @@ void run( int argc, char* const argv[] )
 
         logger.info( "repwatchd starting" );
 
-        wiringPiSetup();
-
         auto props = read_properties( args.properties_file() );
 
         auto powerPins = props.value( "powerPins", json::object() );
         for ( auto powerPin = powerPins.begin() ; powerPin != powerPins.end() ; ++powerPin ) {
             logger.info( "configuring printer ", powerPin.key(), " from properties" );
 
-            PrinterConfig config = { powerPin.value() };
-            pinMode( *config.powerPin, OUTPUT );
-            digitalWrite( powerPin.value(), LOW );
+            PrinterConfig config = { wiring::Output( powerPin.value().get< int >() ) };
             configs.emplace( powerPin.key(), move( config ) );
         }
 

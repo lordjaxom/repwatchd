@@ -16,7 +16,8 @@ class Session
 public:
     using MessageHandler = std::function< void ( std::string const& ) >;
 
-    class Impl;
+private:
+    class SessionImpl;
 
 public:
     explicit Session( Endpoint const& endpoint );
@@ -27,7 +28,7 @@ public:
     void subscribe( std::string topic, MessageHandler handler );
 
 private:
-    std::unique_ptr< Impl > impl_;
+    std::unique_ptr< SessionImpl > impl_;
 };
 
 } // namespace mqtt
