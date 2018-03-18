@@ -1,15 +1,23 @@
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <system_error>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
+#include <3dprnet/core/encoding.hpp>
+#include <3dprnet/core/logging.hpp>
+#include <3dprnet/core/optional.hpp>
+#include <3dprnet/repetier/service.hpp>
+#include <3dprnet/repetier/types.hpp>
 #include <boost/asio/io_context.hpp>
+#include <boost/lexical_cast.hpp>
+#include <mosquittopp.h>
 #include <nlohmann/json.hpp>
-#include <core/logging.hpp>
-#include <repetier/service.hpp>
 
 #include "commandline.hpp"
-#include "fhem_service.hpp"
+#include "mqtt/session.hpp"
 
 using namespace nlohmann;
 using namespace std;
@@ -19,9 +27,19 @@ namespace asio = boost::asio;
 
 namespace repw {
 
-static logger logger { "repwatchd" };
+static Logger logger( "repwatchd" );
 
-static json read_properties( string const& fileName )
+struct PrinterConfig
+{
+    optional< int > powerPin;
+    bool initialized;
+};
+
+unique_ptr< rep::Service > repetier;
+unique_ptr< mqtt::Session > broker;
+unordered_map< string, PrinterConfig > configs;
+
+json read_properties( string const& fileName )
 {
     ifstream ifs { fileName, ios::in };
     if ( !ifs ) {
@@ -33,57 +51,86 @@ static json read_properties( string const& fileName )
     return move( props );
 }
 
-static void update_temperature( fhem::service& fhem, string const& slug, rep::Temperature const& temp )
+void handle_power( string const& slug, string const& value )
 {
-    fhem.setreading( "MakerPI_input", slug + "_temperature_" + temp.controller_name(), to_string( temp.actual() ) );
+    logger.info( "received POWER for ", slug );
 }
 
-static void update_config( fhem::service& fhem, string const& slug, rep::PrinterConfig const& config )
+void handle_heatbed_temp( string const& slug, string const& value )
 {
-	if ( config.heatbed() ) {
-		fhem.setreading( "MakerPI_input", slug + "_temperature_heatbed", "none" );
-	}
-	for ( size_t i = 0 ; i < config.extruders().size() ; ++i ) {
-		fhem.setreading( "MakerPI_input", slug + "_temperature_extruder" + to_string( i ), "none" );
-	}
+    logger.info( "received Heatbed/TEMP for ", slug, ": ", value );
+    repetier->sendCommand( slug, "M140 S" + value );
 }
 
-static void update_printers( fhem::service& fhem, rep::Service& rep, vector< rep::printer > const& printers )
+void handle_temperature( string const& slug, rep::Temperature const& temperature )
+{
+    if ( temperature.controller() == rep::Temperature::heatbed ) {
+        broker->publish( "stat/Printers/" + slug + "/Heatbed/TEMP", to_string( temperature.actual() ) );
+    }
+}
+
+void handle_config( string const& slug, rep::PrinterConfig const& config )
+{
+    if ( config.heatbed() ) {
+        broker->publish( "stat/Printers/" + slug + "/Heatbed/TEMP", "none" );
+    }
+}
+
+void handle_printers( vector< rep::Printer > const& printers )
 {
     for ( auto const& printer : printers ) {
-        fhem.setreading( "MakerPI_input", printer.slug() + "_state", string( to_string( printer.state() ) ) );
-        fhem.setreading( "MakerPI_input", printer.slug() + "_job", printer.job() );
-		if ( printer.state() == rep::printer::disabled || printer.state() == rep::printer::offline ) {
-			rep.request_config( printer.slug() );
-		}
+        auto config = configs.emplace( printer.slug(), PrinterConfig {} ).first;
+        if ( !config->second.initialized ) {
+            if ( config->second.powerPin != nullopt ) {
+                broker->subscribe( "cmnd/Printers/" + printer.slug() + "/POWER",
+                                   [slug = printer.slug()]( auto payload ) { handle_power( slug, payload ); } );
+                broker->subscribe( "cmnd/Printers/" + printer.slug() + "/Heatbed/TEMP",
+                                   [slug = printer.slug()]( auto payload ) { handle_heatbed_temp( slug, payload ); } );
+            }
+        }
+
+        string state = printer.state() == rep::Printer::printing
+                       ? "printing: " + printer.job()
+                       : static_cast< string >( to_string( printer.state() ) );
+        broker->publish( "stat/Printers/" + printer.slug() + "/STATE", state);
+
+        if ( printer.state() == rep::Printer::disabled || printer.state() == rep::Printer::offline ) {
+            repetier->request_config( printer.slug() );
+        }
     }
 }
 
 void run( int argc, char* const argv[] )
 {
     try {
-        logger::threshold( logger::Debug );
+        Logger::threshold( Logger::Level::debug );
 
         commandline args { argv, argc };
         if ( !args.log_file().empty() ) {
-            logger::output( args.log_file().c_str() );
+            Logger::output( args.log_file().c_str() );
         }
 
         logger.info( "repwatchd starting" );
 
         auto props = read_properties( args.properties_file() );
-        auto const& fhemNode = props.at( "fhem" );
+
+        auto powerPins = props.value( "powerPins", json::object() );
+        for ( auto powerPin = powerPins.begin() ; powerPin != powerPins.end() ; ++powerPin ) {
+            logger.info( "configuring printer ", powerPin.key(), " from properties" );
+            configs.emplace( powerPin.key(), PrinterConfig { powerPin.value() } );
+        }
 
         asio::io_context context;
-        fhem::service fhem( context, fhemNode.at( "host" ), fhemNode.at( "port" ) );
-        rep::Endpoint endpoint( props.at( "repetier" ) );
-        rep::Service service( context, endpoint );
+        repetier = make_unique< rep::Service >( context, props.at( "repetier" ) );
+        broker = make_unique< mqtt::Session >( props.at( "mqtt" ).get< mqtt::Endpoint >() );
 
-        service.on_disconnect( [&]( auto ec ) { service.request_printers(); } );
-        service.on_temperature( [&]( auto slug, auto temp ) { update_temperature( fhem, slug, temp ); } );
-		service.on_config( [&]( auto slug, auto config ) { update_config( fhem, slug, config ); } );
-        service.on_printers( [&]( auto printers ) { update_printers( fhem, service, printers ); } );
-        service.request_printers();
+        repetier->on_disconnect( [=]( auto ec ) {
+            repetier->request_printers();
+        } );
+        repetier->on_temperature( []( auto slug, auto temperature ) { handle_temperature( slug, temperature ); } );
+        repetier->on_config( []( auto slug, auto config ) { handle_config( slug, config ); } );
+        repetier->on_printers( []( auto printers ) { handle_printers( printers ); } );
+        repetier->request_printers();
 
         context.run();
     } catch ( exception const& e ) {

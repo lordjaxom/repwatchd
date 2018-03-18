@@ -9,17 +9,18 @@ set(Boost_DEFINITIONS BOOST_COROUTINES_NO_DEPRECATION_WARNING)
 
 find_path(json_INCLUDE_DIRS nlohmann/json.hpp HINTS "${JSON_ROOT}/include")
 
-find_path(lib3dprnet_INCLUDE_DIRS core/config.hpp HINTS "${LIB3DPRNET_ROOT}")
+find_path(utf8_INCLUDE_DIRS utf8.h HINTS "${UTF8_ROOT}/source")
 
-find_path(lib3dprnet_INCLUDE_DIRS core/config.hpp HINTS "${LIB3DPRNET_ROOT}")
-if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-    set(lib3dprnet_LIB_DIR "${LIB3DPRNET_ROOT}/cmake-build-debug${LIB3DPRNET_BUILD_SUFFIX}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
-    set(lib3dprnet_LIB_DIR "${LIB3DPRNET_ROOT}/cmake-build-release${LIB3DPRNET_BUILD_SUFFIX}")
+string(TOLOWER "${CMAKE_BUILD_TYPE}" LIB3DPRNET_BUILD_TYPE)
+find_path(lib3dprnet_INCLUDE_DIRS 3dprnet/core/config.hpp HINTS "${LIB3DPRNET_ROOT}/include")
+find_library(lib3dprnet_LIBRARIES 3dprnet HINTS "${LIB3DPRNET_ROOT}/cmake-build-${LIB3DPRNET_BUILD_TYPE}${LIB3DPRNET_BUILD_SUFFIX}" )
+
+if(WIN32)
+    find_path(mosquitto_INCLUDE_DIRS mosquitto.h HINTS "${MOSQUITTO_ROOT}/lib")
+    set(mosquitto_INCLUDE_DIRS ${mosquitto_INCLUDE_DIRS} ${mosquitto_INCLUDE_DIRS}/cpp)
 else()
-    message(FATAL_ERROR "Unknown build type ${CMAKE_BUILD_TYPE}")
+    set(mosquitto_LIBRARIES mosquittopp)
 endif()
-find_library(lib3dprnet_LIBRARIES 3dprnet HINTS "${lib3dprnet_LIB_DIR}")
 
 set(CMAKE_CXX_STANDARD 14)
 if(WIN32)
@@ -31,11 +32,11 @@ add_executable(repwatchd
         main.cpp
         commandline.cpp
         commandline.hpp
-        fhem_service.cpp
-        fhem_service.hpp)
+        mqtt/session.cpp
+        mqtt/session.hpp mqtt/types.cpp mqtt/types.hpp)
 target_compile_definitions(repwatchd PRIVATE ${Boost_DEFINITIONS})
-target_include_directories(repwatchd PRIVATE ${Boost_INCLUDE_DIRS} ${json_INCLUDE_DIRS} ${lib3dprnet_INCLUDE_DIRS})
-target_link_libraries(repwatchd ${Boost_LIBRARIES} ${lib3dprnet_LIBRARIES} stdc++fs)
+target_include_directories(repwatchd PRIVATE ${Boost_INCLUDE_DIRS} ${json_INCLUDE_DIRS} ${mosquitto_INCLUDE_DIRS} ${utf8_INCLUDE_DIRS} ${lib3dprnet_INCLUDE_DIRS})
+target_link_libraries(repwatchd ${Boost_LIBRARIES} ${mosquitto_LIBRARIES} ${lib3dprnet_LIBRARIES} stdc++fs)
 if(WIN32)
     target_link_libraries(repwatchd ws2_32)
 else()
