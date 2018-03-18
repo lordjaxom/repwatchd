@@ -98,6 +98,7 @@ void handle_printers( vector< rep::Printer > const& printers )
                 broker->subscribe( "cmnd/Printers/" + printer.slug() + "/Heatbed/TEMP",
                                    [slug = printer.slug()]( auto payload ) { handle_heatbed_temp( slug, payload ); } );
             }
+            config->second.initialized = true;
         }
 
         string state = printer.state() == rep::Printer::printing
