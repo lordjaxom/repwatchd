@@ -11,7 +11,7 @@ using namespace prnet;
 namespace repw {
 namespace wiring {
 
-static Logger logger( "wiring::output" );
+static Logger logger( "wiring::Output" );
 
 class Output::OutputImpl
 {
