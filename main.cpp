@@ -53,8 +53,6 @@ json read_properties( string const& fileName )
 
 void handle_power( string const& slug, string const& value )
 {
-    logger.info( "switching power for ", slug, " to ", value );
-
     bool boolValue;
     if ( value == "ON" ) {
         boolValue = true;
@@ -64,6 +62,9 @@ void handle_power( string const& slug, string const& value )
         logger.warning( "unknown power value ", value );
         return;
     }
+
+    logger.info( "switching power for ", slug, " to ", value );
+
     configs.at( slug ).powerPin->set( boolValue );
 }
 
