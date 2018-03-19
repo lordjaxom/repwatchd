@@ -23,7 +23,7 @@ public:
         call_once( initialized, [] { wiringPiSetup(); } );
 
         pinMode( pin_, OUTPUT );
-        set( false, false );
+        set( false, true );
     }
 
     bool get() const { return value_; }
@@ -31,9 +31,9 @@ public:
     void set( bool value, bool force = false )
     {
         if ( value_ != value || force ) {
-            logger.debug( "setting pin ", pin_, " to ", value );
+            logger.debug( "setting GPIO pin ", pin_, " to ", value ? "HIGH" : "LOW" );
 
-            digitalWrite( pin_, value ^ invert_ ? LOW : HIGH );
+            digitalWrite( pin_, value ^ invert_ ? HIGH : LOW );
             value_ = value;
         }
     }
