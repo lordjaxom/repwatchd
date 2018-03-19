@@ -11,7 +11,7 @@ using namespace prnet;
 namespace repw {
 namespace wiring {
 
-static Logger logger( "wiring::output" );
+static Logger logger( "wiring::Output" );
 
 class Output::OutputImpl
 {
@@ -23,7 +23,7 @@ public:
         call_once( initialized, [] { wiringPiSetup(); } );
 
         pinMode( pin_, OUTPUT );
-        set( false, false );
+        set( false, true );
     }
 
     bool get() const { return value_; }
@@ -33,7 +33,7 @@ public:
         if ( value_ != value || force ) {
             logger.debug( "setting pin ", pin_, " to ", value );
 
-            digitalWrite( pin_, value ^ invert_ ? LOW : HIGH );
+            digitalWrite( pin_, value ^ invert_ ? HIGH : LOW );
             value_ = value;
         }
     }
