@@ -51,7 +51,7 @@ once_flag Output::OutputImpl::initialized;
 Output::Output( int pin, bool invert )
         : impl_( make_unique< OutputImpl >( pin, invert ) ){}
 
-Output::Output( Output&& ) = default;
+Output::Output( Output&& ) noexcept = default;
 Output::~Output() = default;
 
 bool Output::get() const

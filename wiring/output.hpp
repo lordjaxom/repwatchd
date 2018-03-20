@@ -11,9 +11,8 @@ class Output
     class OutputImpl;
 
 public:
-    explicit Output( int pin, bool invert = false );
     Output( Output const& ) = delete;
-    Output( Output&& );
+    Output( Output&& ) noexcept;
     ~Output();
 
     bool get() const;
@@ -22,6 +21,8 @@ public:
     void clear() { set( false ); }
 
 private:
+    Output( int pin, bool invert );
+
     std::unique_ptr< OutputImpl > impl_;
 };
 
