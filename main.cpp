@@ -102,12 +102,10 @@ void handle_printers( vector< rep::Printer > const& printers )
             config->second.initialized = true;
         }
 
-        string state = printer.state() == rep::Printer::printing
-                       ? "printing: " + printer.job()
-                       : static_cast< string >( to_string( printer.state() ) );
-        broker->publish( "stat/Printers/" + printer.slug() + "/STATE", state);
+	broker->publish( "stat/Printers/" + printer.slug() + "/POWER", printer.online() ? "ON" : "OFF" );
+	broker->publish( "stat/Printers/" + printer.slug() + "/JOB", printer.job() );
 
-        if ( printer.state() == rep::Printer::disabled || printer.state() == rep::Printer::offline ) {
+        if ( !printer.active() || !printer.online() ) {
             repetier->request_config( printer.slug() );
         }
     }
