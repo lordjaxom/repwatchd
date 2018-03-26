@@ -73,6 +73,7 @@ void handle_mqtt_power( string const& slug, string const& value )
 void handle_mqtt_heatbed_temp( string const& slug, string const& value )
 {
     logger.info( "setting heatbed temperature of ", slug, " to ", value );
+
     repetier->sendCommand( slug, "M140 S" + value );
 }
 
@@ -98,6 +99,7 @@ void handle_config( string const& slug, rep::PrinterConfig const& printerConfig 
                                [slug = printerConfig.slug()]( auto payload ) { handle_mqtt_heatbed_temp( slug, payload ); } );
             if ( !config.online ) {
                 broker->publish( "stat/Printers/" + printerConfig.slug() + "/Heatbed/GETTEMP", "none" );
+                broker->publish( "stat/Printers/" + printerConfig.slug() + "/Heatbed/SETTEMP", "none" );
             }
         }
         config.configured = true;
@@ -117,6 +119,7 @@ void handle_printers( vector< rep::Printer > const& printers )
         broker->publish( "stat/Printers/" + printer.slug() + "/JOB", printer.job() );
         if ( !printer.online() && config.heatbed ) {
             broker->publish( "stat/Printers/" + printer.slug() + "/Heatbed/GETTEMP", "none" );
+            broker->publish( "stat/Printers/" + printer.slug() + "/Heatbed/SETTEMP", "none" );
         }
     }
 }
