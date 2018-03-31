@@ -72,7 +72,7 @@ private:
     void resubscribe( Subscriptions::iterator it = everything )
     {
         auto first = it != everything ? it : subscriptions_.begin();
-        auto last = it != everything ? it : subscriptions_.end();
+        auto last = it != everything ? next( it, 1 ) : subscriptions_.end();
         for_each( first, last, [this]( auto& subscription ) {
             int rc;
             if ( ( rc = this->mosquittopp::subscribe( nullptr, subscription.first.c_str() ) ) != MOSQ_ERR_SUCCESS ) {
