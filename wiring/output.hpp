@@ -11,9 +11,9 @@ class Output
     class OutputImpl;
 
 public:
-    explicit Output( int pin, bool invert = false );
+    Output( int pin, bool invert = false );
     Output( Output const& ) = delete;
-    Output( Output&& );
+    Output( Output&& ) noexcept;
     ~Output();
 
     bool get() const;

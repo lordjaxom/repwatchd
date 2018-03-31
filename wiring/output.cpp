@@ -20,10 +20,8 @@ public:
             : pin_( pin )
             , invert_( invert )
     {
-        call_once( initialized, [] { wiringPiSetup(); } );
-
         pinMode( pin_, OUTPUT );
-        set( false, true );
+        set( digitalRead( pin_ ) == HIGH, true );
     }
 
     bool get() const { return value_; }
@@ -51,7 +49,7 @@ once_flag Output::OutputImpl::initialized;
 Output::Output( int pin, bool invert )
         : impl_( make_unique< OutputImpl >( pin, invert ) ){}
 
-Output::Output( Output&& ) = default;
+Output::Output( Output&& ) noexcept = default;
 Output::~Output() = default;
 
 bool Output::get() const

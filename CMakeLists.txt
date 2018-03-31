@@ -37,7 +37,8 @@ add_executable(repwatchd
         mqtt/types.cpp
         mqtt/types.hpp
         wiring/output.cpp
-        wiring/output.hpp)
+        wiring/output.hpp
+        wiring/wiring.cpp)
 target_compile_definitions(repwatchd PRIVATE ${Boost_DEFINITIONS})
 target_include_directories(repwatchd PRIVATE
         ${Boost_INCLUDE_DIRS}
