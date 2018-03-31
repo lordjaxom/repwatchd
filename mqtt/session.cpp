@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <stdexcept>
 #include <unordered_map>
 #include <utility>
 
@@ -9,98 +10,131 @@
 
 using namespace std;
 using namespace prnet;
+using namespace mosqpp;
 
 namespace repw {
 namespace mqtt {
 
-static prnet::Logger logger( "mqtt::Session" );
+static Logger logger( "mqtt::Session" );
 
 class Session::SessionImpl
-        : mosqpp::mosquittopp
+        : mosquittopp
 {
-    using Lock = lock_guard< recursive_mutex >;
+    using Lock = lock_guard< mutex >;
+    using Subscriptions = unordered_multimap< string, MessageHandler >;
 
 public:
-    SessionImpl( Endpoint const& endpoint )
+    SessionImpl( Endpoint endpoint )
             : mosquittopp( endpoint.clientId().c_str() )
     {
-        call_once( initialized, [] { mosqpp::lib_init(); } );
-
-        logger.info( "connecting to ", endpoint.host(), ":", endpoint.port() );
-
-        connect_async( endpoint.host().c_str(), endpoint.port() );
-        check( "loop", loop_start() );
+        call_once( initialized, [] { lib_init(); } );
+        connect( endpoint );
     }
 
     ~SessionImpl()
     {
-        loop_stop( true );
+        mosquittopp::loop_stop( true );
     }
 
-    void publish( string const& topic, string const& payload )
+    void publish( std::string const& topic, string_view payload )
     {
-        check( "publish", mosquittopp::publish( nullptr, topic.c_str(), static_cast< int >( payload.length() ), payload.data() ) );
+        Lock lock( mutex_ );
+
+        int rc;
+        if ( ( rc = mosquittopp::publish( nullptr, topic.c_str(), static_cast< int >( payload.length() ), payload.data() ) )
+                != MOSQ_ERR_SUCCESS ) {
+            logger.error( "error publishing to ", topic, ": ", strerror( rc ) );
+        }
     }
 
     void subscribe( string&& topic, MessageHandler&& handler )
     {
-        if ( check( "subscribe", mosquittopp::subscribe( nullptr, topic.c_str() ) ) ) {
-            subscriptions_.emplace( move( topic ), move( handler ) );
+        Lock lock( mutex_ );
+
+        auto inserted = subscriptions_.emplace( move( topic ), move( handler ) );
+        if ( connected_ ) {
+            resubscribe( inserted );
         }
     }
 
 private:
-    bool check( char const* what, int rc )
+    void connect( Endpoint const& endpoint )
     {
-        if ( rc == MOSQ_ERR_SUCCESS ) {
-            return true;
+        logger.info( "connecting to ", endpoint.host(), ":", endpoint.port() );
+
+        int rc;
+        if ( ( rc = connect_async( endpoint.host().c_str(), endpoint.port() ) ) != MOSQ_ERR_SUCCESS ||
+                ( rc = loop_start() ) != MOSQ_ERR_SUCCESS ) {
+            throw runtime_error( "error starting MQTT session with " + endpoint.host() + ": " + strerror( rc ) );
         }
-        logger.error( "mqtt error at", what, ": ", rc );
-        return false;
+    }
+
+    void resubscribe( Subscriptions::iterator it = everything )
+    {
+        auto first = it != everything ? it : subscriptions_.begin();
+        auto last = it != everything ? it : subscriptions_.end();
+        for_each( first, last, [this]( auto& subscription ) {
+            int rc;
+            if ( ( rc = this->mosquittopp::subscribe( nullptr, subscription.first.c_str() ) ) != MOSQ_ERR_SUCCESS ) {
+                logger.error( "error subscribing to MQTT topic ", subscription.first, ": ", strerror( rc ) );
+            }
+        } );
     }
 
     void on_connect( int rc ) override
     {
-        if ( check( "connect", rc ) ) {
-            logger.info( "connection established successfully" );
+        Lock lock( mutex_ );
+
+        if ( rc != MOSQ_ERR_SUCCESS ) {
+            logger.error( "error connecting to MQTT broker: ", strerror( rc ), ", trying to reconnect" );
+            mosquittopp::reconnect_async();
+            return;
         }
+
+        logger.info( "connection to MQTT broker established successfully" );
+
+        connected_ = true;
+        resubscribe();
     }
 
     void on_disconnect( int rc ) override
     {
-        logger.error( "connection lost due to mosquitto error ", rc, ", reconnecting" );
-        reconnect_async();
-    }
+        Lock lock( mutex_ );
 
-    void on_log( int level, char const* str ) override
-    {
-        logger.debug( "MQTT[", level, "] ", str );
+        logger.error( "connection to MQTT broker lost: ", strerror( rc ), ", trying to reconnect" );
+        
+        connected_ = false;
+        mosquittopp::reconnect_async();
     }
 
     void on_message( mosquitto_message const* message ) override
     {
+        Lock lock( mutex_ );
+
         logger.debug( "received message from ", message->topic, " with mid ", message->mid );
 
-        auto subs = subscriptions_.equal_range( message->topic );
-        if ( subs.first != subs.second ) {
-            string payload( static_cast< char* >( message->payload ), static_cast< size_t >( message->payloadlen ) );
-            for_each( subs.first, subs.second, [&]( auto const& sub ) { sub.second( payload ); } );
-        }
+        string_view payload( static_cast< char* >( message->payload ), static_cast< size_t >( message->payloadlen ) );
+        auto subscriptions = subscriptions_.equal_range( message->topic );
+        for_each( subscriptions.first, subscriptions.second, [&]( auto const& subscription ) { subscription.second( payload ); } );
     }
 
     static once_flag initialized;
+    static Subscriptions::iterator everything;
 
-    unordered_multimap< string, MessageHandler > subscriptions_;
+    bool connected_ {};
+    Subscriptions subscriptions_;
+    mutex mutex_;
 };
 
 once_flag Session::SessionImpl::initialized;
+Session::SessionImpl::Subscriptions::iterator Session::SessionImpl::everything {};
 
 Session::Session( Endpoint const& endpoint )
         : impl_( make_unique< SessionImpl >( endpoint ) ) {}
 
 Session::~Session() = default;
 
-void Session::publish( string const &topic, string const &payload )
+void Session::publish( std::string const& topic, string_view payload )
 {
     impl_->publish( topic, payload );
 }

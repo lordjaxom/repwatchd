@@ -6,6 +6,8 @@
 #include <memory>
 #include <string>
 
+#include <3dprnet/core/string_view.hpp>
+
 #include "types.hpp"
 
 namespace repw {
@@ -14,7 +16,7 @@ namespace mqtt {
 class Session
 {
 public:
-    using MessageHandler = std::function< void ( std::string const& ) >;
+    using MessageHandler = std::function< void ( prnet::string_view payload ) >;
 
 private:
     class SessionImpl;
@@ -24,7 +26,7 @@ public:
     Session( Session const& ) = delete;
     ~Session();
 
-    void publish( std::string const& topic, std::string const& payload );
+    void publish( std::string const& topic, prnet::string_view payload );
     void subscribe( std::string topic, MessageHandler handler );
 
 private:

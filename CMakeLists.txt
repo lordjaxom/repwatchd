@@ -11,12 +11,16 @@ find_path(json_INCLUDE_DIRS nlohmann/json.hpp HINTS "${JSON_ROOT}/include")
 
 find_path(utf8_INCLUDE_DIRS utf8.h HINTS "${UTF8_ROOT}/source")
 
+find_path(mosquitto_INCLUDE_DIRS mosquitto.h HINTS "${MOSQUITTO_ROOT}/lib")
+find_path(mosquittopp_INCLUDE_DIRS mosquittopp.h HINTS "${MOSQUITTO_ROOT}/lib/cpp")
+set(mosquitto_LIBRARIES mosquittopp)
+
+find_path(wiringPi_INCLUDE_DIRS wiringPi.h HINTS "${WIRINGPI_ROOT}")
+set(wiringPi_LIBRARIES wiringPi)
+
 string(TOLOWER "${CMAKE_BUILD_TYPE}" LIB3DPRNET_BUILD_TYPE)
 find_path(lib3dprnet_INCLUDE_DIRS 3dprnet/core/config.hpp HINTS "${LIB3DPRNET_ROOT}/include")
 find_library(lib3dprnet_LIBRARIES 3dprnet HINTS "${LIB3DPRNET_ROOT}/cmake-build-${LIB3DPRNET_BUILD_TYPE}${LIB3DPRNET_BUILD_SUFFIX}" )
-
-set(mosquitto_LIBRARIES mosquittopp)
-set(wiringPi_LIBRARIES wiringPi)
 
 set(CMAKE_CXX_STANDARD 14)
 if(WIN32)
@@ -35,8 +39,20 @@ add_executable(repwatchd
         wiring/output.cpp
         wiring/output.hpp)
 target_compile_definitions(repwatchd PRIVATE ${Boost_DEFINITIONS})
-target_include_directories(repwatchd PRIVATE ${Boost_INCLUDE_DIRS} ${json_INCLUDE_DIRS} ${utf8_INCLUDE_DIRS} ${lib3dprnet_INCLUDE_DIRS})
-target_link_libraries(repwatchd ${Boost_LIBRARIES} ${mosquitto_LIBRARIES} ${wiringPi_LIBRARIES} ${lib3dprnet_LIBRARIES} stdc++fs)
+target_include_directories(repwatchd PRIVATE
+        ${Boost_INCLUDE_DIRS}
+        ${json_INCLUDE_DIRS}
+        ${utf8_INCLUDE_DIRS}
+        ${mosquitto_INCLUDE_DIRS}
+        ${mosquittopp_INCLUDE_DIRS}
+        ${wiringPi_INCLUDE_DIRS}
+        ${lib3dprnet_INCLUDE_DIRS})
+target_link_libraries(repwatchd
+        ${Boost_LIBRARIES}
+        ${mosquitto_LIBRARIES}
+        ${wiringPi_LIBRARIES}
+        ${lib3dprnet_LIBRARIES}
+        stdc++fs)
 if(WIN32)
     target_link_libraries(repwatchd ws2_32)
 else()
